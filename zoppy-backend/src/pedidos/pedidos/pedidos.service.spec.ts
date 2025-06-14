@@ -4,6 +4,8 @@ import { Pedido } from './pedido.model';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
+import { GetPedidosDto } from './dto/get-pedidos.dto';
+import { Op } from 'sequelize';
 
 describe('PedidosService', () => {
   let service: PedidosService;
@@ -32,20 +34,50 @@ describe('PedidosService', () => {
   });
 
   describe('findAll', () => {
-    it('should return an array of pedidos', async () => {
+    it('should return an array of pedidos with pagination and count', async () => {
       const pedidosMock = [{ cliente: 'Cliente 1' }, { cliente: 'Cliente 2' }];
-      jest.spyOn(pedidoModel, 'findAll').mockResolvedValue(pedidosMock as any);
+      const countMock = 2;
+      const findAndCountAllMock = { rows: pedidosMock, count: countMock };
+      jest.spyOn(pedidoModel, 'findAndCountAll').mockResolvedValue(findAndCountAllMock as any);
 
-      const result = await service.findAll();
+      const queryParams: GetPedidosDto = { page: 1, limit: 10 };
+      const result = await service.findAll(queryParams);
 
-      expect(pedidoModel.findAll).toHaveBeenCalled();
-      expect(result).toEqual(pedidosMock);
+      expect(pedidoModel.findAndCountAll).toHaveBeenCalledWith({
+        where: {},
+        offset: 0,
+        limit: 10,
+        order: [['dataPedido', 'DESC']],
+      });
+      expect(result).toEqual({ rows: pedidosMock, count: countMock });
+    });
+
+    it('should apply filters and pagination', async () => {
+      const pedidosMock = [{ cliente: 'Cliente Filtered' }];
+      const countMock = 1;
+      const findAndCountAllMock = { rows: pedidosMock, count: countMock };
+      jest.spyOn(pedidoModel, 'findAndCountAll').mockResolvedValue(findAndCountAllMock as any);
+
+      const queryParams: GetPedidosDto = { page: 1, limit: 5, cliente: 'Filtered', status: 'Pendente', dataPedidoInicio: '2023-01-01', dataPedidoFim: '2023-01-31' };
+      await service.findAll(queryParams);
+
+      expect(pedidoModel.findAndCountAll).toHaveBeenCalledWith({
+        where: {
+          cliente: { [Op.like]: '%Filtered%' },
+          status: 'Pendente',
+          dataPedido: { [Op.between]: [new Date('2023-01-01'), new Date('2023-01-31')] }
+        },
+        offset: 0,
+        limit: 5,
+        order: [['dataPedido', 'DESC']],
+      });
     });
 
     it('should handle errors during findAll', async () => {
-      jest.spyOn(pedidoModel, 'findAll').mockRejectedValue(new Error('Erro ao buscar'));
+      jest.spyOn(pedidoModel, 'findAndCountAll').mockRejectedValue(new Error('Erro ao buscar'));
 
-      await expect(service.findAll()).rejects.toThrowError('Não foi possível buscar a lista de pedidos.');
+      const queryParams: GetPedidosDto = { page: 1, limit: 10 };
+      await expect(service.findAll(queryParams)).rejects.toThrowError('Não foi possível buscar a lista de pedidos.');
     });
   });
 

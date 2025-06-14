@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, NotFoundException, HttpStatus, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, NotFoundException, HttpStatus, HttpException, Query } from '@nestjs/common';
 import { PedidosService } from '../pedidos/pedidos.service';
+import { GetPedidosDto } from '../pedidos/dto/get-pedidos.dto';
 
 @Controller('pedidos')
 export class PedidosController {
@@ -15,9 +16,9 @@ export class PedidosController {
   }
 
   @Get()
-  async findAll() {
+  async findAll(@Query() query: GetPedidosDto) {
     try {
-      return await this.pedidosService.findAll();
+      return await this.pedidosService.findAll(query);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

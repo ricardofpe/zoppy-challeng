@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Pedido } from './pedido.model';
+import { GetPedidosDto } from './dto/get-pedidos.dto';
+import { Op } from 'sequelize';
 
 @Injectable()
 export class PedidosService {
@@ -9,11 +11,49 @@ export class PedidosService {
     private pedidoModel: typeof Pedido,
   ) {}
 
-  async findAll(): Promise<Pedido[]> {
+  async findAll(query: GetPedidosDto): Promise<{ rows: Pedido[]; count: number }> {
     try {
-      return await this.pedidoModel.findAll();
+      let { page = 1, limit = 10, cliente, status, dataPedidoInicio, dataPedidoFim } = query;
+
+      page = parseInt(page.toString(), 10);
+      limit = parseInt(limit.toString(), 10);
+
+      const offset = (page - 1) * limit;
+
+      const where: any = {};
+
+      if (cliente) {
+        where.cliente = { [Op.like]: `%${cliente}%` }; 
+      }
+
+      if (status) {
+        where.status = status;
+      }
+
+      if (dataPedidoInicio && dataPedidoFim) {
+          where.dataPedido = {
+              [Op.between]: [new Date(dataPedidoInicio), new Date(dataPedidoFim)]
+          };
+      } else if (dataPedidoInicio) {
+          where.dataPedido = {
+              [Op.gte]: new Date(dataPedidoInicio)
+          };
+      } else if (dataPedidoFim) {
+          where.dataPedido = {
+              [Op.lte]: new Date(dataPedidoFim)
+          };
+      }
+
+      const { rows, count } = await this.pedidoModel.findAndCountAll({
+        where,
+        offset,
+        limit,
+        order: [['dataPedido', 'DESC']], 
+      });
+
+      return { rows, count };
     } catch (error) {
-      console.error('Erro ao buscar todos os pedidos:', error);
+      console.error('Erro ao buscar pedidos com paginação e filtros:', error);
       throw new Error('Não foi possível buscar a lista de pedidos.');
     }
   }
@@ -28,7 +68,7 @@ export class PedidosService {
     } catch (error) {
       console.error(`Erro ao buscar pedido com ID ${id}:`, error);
       if (error instanceof NotFoundException) {
-        throw error; 
+        throw error;
       }
       throw new Error(`Não foi possível buscar o pedido com ID ${id}.`);
     }
