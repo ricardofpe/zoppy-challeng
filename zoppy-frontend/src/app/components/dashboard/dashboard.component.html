@@ -1,0 +1,69 @@
+<app-header></app-header>
+
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-6">
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-8 text-center">
+      Painel de Controle
+    </h1>
+
+    <div *ngIf="loading()" class="text-center py-12">
+      <div class="bg-white rounded-2xl shadow-lg p-8 inline-block">
+        <div class="flex items-center gap-4">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span class="text-gray-600">Carregando dados...</span>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="error()" class="mb-6 bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg shadow-sm">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{{error()}}</p>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!loading()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-gray-600 font-semibold">Total de Pedidos</div>
+          <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+            </path>
+          </svg>
+        </div>
+        <div class="text-3xl font-extrabold text-gray-900">{{ totalPedidos() }}</div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-gray-600 font-semibold">Total de Produtos</div>
+          <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 7l8-4 8 4m0 6l-8 4-8-4m0 6l8 4 8-4"></path>
+          </svg>
+        </div>
+        <div class="text-3xl font-extrabold text-gray-900">{{ totalProdutos() }}</div>
+      </div>
+
+      
+
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 col-span-1 md:col-span-2 lg:col-span-3">
+        <canvas id="statusChart"></canvas>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 col-span-1 md:col-span-2 lg:col-span-3">
+        <canvas id="topProductsChart"></canvas>
+      </div>
+
+    </div>
+  </div>
+</div>

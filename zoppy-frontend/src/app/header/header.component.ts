@@ -47,6 +47,18 @@ import { RouterModule, RouterLink, RouterLinkActive } from "@angular/router"
                 </svg>
                 <span class="hidden sm:inline">Produtos</span>
               </a>
+
+              <a
+                routerLink="/dashboard"
+                routerLinkActive="bg-blue-50 text-blue-600 border-blue-200"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-transparent"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.5 5V19.5H20M7.5 16L11.5 11.5L15.5 14L19.5 8.5"/>
+                </svg>
+
+                <span class="hidden sm:inline">Dashboard</span>
+              </a>
             </nav>
           </div>
         </div>
