@@ -3,6 +3,7 @@ import { CommonModule, CurrencyPipe, registerLocaleData } from "@angular/common"
 import localePt from "@angular/common/locales/pt";
 import { FormsModule } from "@angular/forms";
 import { HttpClientModule } from "@angular/common/http";
+import { Router } from "@angular/router";
 import { PedidoService } from "../../services/pedido.service";
 import type { Pedido } from "../../models/pedido.model";
 import { RouterModule } from "@angular/router";
@@ -21,28 +22,16 @@ registerLocaleData(localePt, "pt-BR");
 export class PedidosComponent implements OnInit {
     private pedidoService = inject(PedidoService);
     private produtoService = inject(ProdutoService);
+    private router = inject(Router);
 
     pedidos = signal<Pedido[]>([]);
     selectedPedido = signal<Pedido | null>(null);
-    showForm = signal(false);
-    isEditing = signal(false);
     loading = signal(false);
     error = signal("");
 
-    newPedido = signal<Pedido>({
-        cliente: "",
-        dataPedido: new Date().toISOString().slice(0, 10),
-        valorTotal: 0,
-        status: "pendente",
-        produtoIds: [],
-        produtos: []
-    });
-
     produtos = signal<Produto[]>([]);
-    selectedProducts = signal<Produto[]>([]);
 
     hasPedidos = computed(() => this.pedidos().length > 0);
-    isFormVisible = computed(() => this.showForm());
 
     currentPage = signal(1);
     pageSize = signal(10);
@@ -54,46 +43,6 @@ export class PedidosComponent implements OnInit {
     dataPedidoInicioFilter = signal("");
     dataPedidoFimFilter = signal("");
     produtoFilter = signal<number | null>(null);
-
-    filteredPedidos = computed(() => {
-        const clienteFilter = this.clienteFilter().toLowerCase();
-        const statusFilter = this.statusFilter().toLowerCase();
-        const dataPedidoInicioFilter = this.dataPedidoInicioFilter();
-        const dataPedidoFimFilter = this.dataPedidoFimFilter();
-        const produtoFilter = this.produtoFilter();
-
-        return this.pedidos().filter(pedido => {
-            const clienteMatch = pedido.cliente.toLowerCase().includes(clienteFilter);
-            const statusMatch = statusFilter === "" || pedido.status.toLowerCase() === statusFilter;
-
-            let dataPedidoMatch = true;
-            if (dataPedidoInicioFilter && dataPedidoFimFilter) {
-                const pedidoDate = new Date(pedido.dataPedido);
-                const startDate = new Date(dataPedidoInicioFilter);
-                const endDate = new Date(dataPedidoFimFilter);
-                dataPedidoMatch = pedidoDate >= startDate && pedidoDate <= endDate;
-            } else if (dataPedidoInicioFilter) {
-                const pedidoDate = new Date(pedido.dataPedido);
-                const startDate = new Date(dataPedidoInicioFilter);
-                dataPedidoMatch = pedidoDate >= startDate;
-            } else if (dataPedidoFimFilter) {
-                const pedidoDate = new Date(pedido.dataPedido);
-                const endDate = new Date(dataPedidoFimFilter);
-                dataPedidoMatch = pedidoDate <= endDate;
-            }
-
-            let produtoMatch = true;
-            if (produtoFilter !== null) {
-                if (pedido.produtoIds && pedido.produtoIds.length > 0) {
-                    produtoMatch = pedido.produtoIds.includes(produtoFilter);
-                } else {
-                    produtoMatch = false;
-                }
-            }
-
-            return clienteMatch && statusMatch && dataPedidoMatch && produtoMatch;
-        });
-    });
 
     ngOnInit() {
         this.loadPedidos();
@@ -139,79 +88,13 @@ export class PedidosComponent implements OnInit {
         });
     }
 
-    showCreateForm() {
-        this.showForm.set(true);
-        this.isEditing.set(false);
-        this.selectedPedido.set(null);
-        this.newPedido.set({
-            cliente: "",
-            dataPedido: new Date().toISOString().slice(0, 10),
-            valorTotal: 0,
-            status: "pendente",
-            produtoIds: [],
-            produtos: []
-        });
-        this.selectedProducts.set([]);
+    navigateToCreate() {
+        this.router.navigate(['/pedidos/novo']);
     }
 
-    showEditForm(pedido: Pedido) {
-        this.showForm.set(true);
-        this.isEditing.set(true);
-        this.selectedPedido.set(pedido);
-
-        const formattedDate = new Date(pedido.dataPedido).toISOString().slice(0, 10);
-        this.newPedido.set({
-            ...pedido,
-            dataPedido: formattedDate,
-            valorTotal: pedido.valorTotal,
-            produtoIds: pedido.produtoIds ? [...pedido.produtoIds] : [],
-            produtos: pedido.produtos ? [...pedido.produtos] : []
-        });
-
-        this.selectedProducts.set(pedido.produtos || []);
-    }
-
-    hideForm() {
-        this.showForm.set(false);
-        this.selectedPedido.set(null);
-        this.isEditing.set(false);
-    }
-
-    savePedido() {
-        const currentPedido = this.newPedido();
-        const selectedPedido = this.selectedPedido();
-        const selectedProducts = this.selectedProducts();
-
-        const formattedDataPedido = new Date(currentPedido.dataPedido).toISOString();
-        const produtoIds = selectedProducts.map(product => product.id!);
-        const valorTotal = this.totalPedido;
-
-        if (this.isEditing() && selectedPedido) {
-            this.pedidoService.update(selectedPedido.id!, { ...currentPedido, dataPedido: formattedDataPedido, produtoIds: produtoIds, valorTotal: valorTotal }).subscribe({
-                next: () => {
-                    this.loadPedidos();
-                    this.hideForm();
-                },
-                error: (err) => {
-                    this.error.set("Erro ao atualizar pedido");
-                    console.error(err);
-                    this.error.set(err.message);
-                },
-            });
-        } else {
-            this.pedidoService.create({ ...currentPedido, dataPedido: formattedDataPedido, produtoIds: produtoIds, valorTotal: valorTotal }).subscribe({
-                next: () => {
-                    this.loadPedidos();
-                    this.hideForm();
-                },
-                error: (err) => {
-                    this.error.set("Erro ao criar pedido");
-                    console.error(err);
-                    this.error.set(err.message);
-                },
-            });
-        }
-    }
+ navigateToEdit(pedido: Pedido) {
+    this.router.navigate(['/pedidos', pedido.id]); 
+}
 
     deletePedido(id: number) {
         if (confirm("Tem certeza que deseja excluir este pedido?")) {
@@ -230,20 +113,16 @@ export class PedidosComponent implements OnInit {
     getStatusColor(status: string): string {
         switch (status.toLowerCase()) {
             case "pendente":
-                return "bg-yellow-100 text-yellow-800";
+                return "bg-yellow-100 text-yellow-800 border border-yellow-200";
             case "em processamento":
-                return "bg-blue-100 text-blue-800";
+                return "bg-blue-100 text-blue-800 border border-blue-200";
             case "concluido":
-                return "bg-green-100 text-green-800";
+                return "bg-green-100 text-green-800 border border-green-200";
             case "cancelado":
-                return "bg-red-100 text-red-800";
+                return "bg-red-100 text-red-800 border border-red-200";
             default:
-                return "bg-gray-100 text-gray-800";
+                return "bg-gray-100 text-gray-800 border border-gray-200";
         }
-    }
-
-    updatePedidoField(field: keyof Pedido, value: any) {
-        this.newPedido.update((pedido) => ({ ...pedido, [field]: value }));
     }
 
     goToPage(page: number) {
@@ -272,7 +151,9 @@ export class PedidosComponent implements OnInit {
         }
 
         range.unshift(1);
-        range.push(pageCount);
+        if (pageCount > 1) {
+            range.push(pageCount);
+        }
 
         return [...new Set(range)];
     }
@@ -293,35 +174,5 @@ export class PedidosComponent implements OnInit {
         this.dataPedidoFimFilter.set("");
         this.produtoFilter.set(null);
         this.applyFilters();
-    }
-
-    toggleProductSelection(produto: Produto) {
-        const currentProducts = this.selectedProducts();
-        const productIndex = currentProducts.findIndex(p => p.id === produto.id);
-
-        if (productIndex > -1) {
-            currentProducts.splice(productIndex, 1);
-        } else {
-            currentProducts.push(produto);
-        }
-
-        this.selectedProducts.set([...currentProducts]);
-        this.updateValorTotal();
-    }
-
-    isProductSelected(produto: Produto): boolean {
-        return this.selectedProducts().some(p => p.id === produto.id);
-    }
-
-    get totalPedido(): number {
-        let total = 0;
-        for (const product of this.selectedProducts()) {
-            total += Number(product.preco);
-        }
-        return total;
-    }
-
-    updateValorTotal() {
-        this.newPedido.update(pedido => ({ ...pedido, valorTotal: this.totalPedido }));
     }
 }

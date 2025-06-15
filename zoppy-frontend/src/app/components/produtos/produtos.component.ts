@@ -1,10 +1,10 @@
 import { Component, type OnInit, inject, signal } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { Router } from "@angular/router";
 import { HeaderComponent } from "../../header/header.component";
 import { ProdutoService } from "../../services/produto.service";
 import { Produto } from "../../models/produto.model";
-
 
 @Component({
   selector: "app-produtos",
@@ -14,6 +14,7 @@ import { Produto } from "../../models/produto.model";
 })
 export class ProdutosComponent implements OnInit {
   private produtoService = inject(ProdutoService);
+  private router = inject(Router);
 
   produtos = signal<Produto[]>([]);
   showForm = signal(false);
@@ -55,6 +56,10 @@ export class ProdutosComponent implements OnInit {
     this.isEditing.set(true);
     this.selectedProduto.set(produto);
     this.newProduto.set({ ...produto });
+  }
+
+  navigateToEdit(produto: Produto): void {
+    this.router.navigate(['/produtos', produto.id]);
   }
 
   hideForm(): void {

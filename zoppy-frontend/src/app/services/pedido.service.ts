@@ -49,6 +49,10 @@ export class PedidoService {
         return this.http.get<PagedResponse<Pedido>>(this.apiUrl, { params: params });
     }
 
+    findById(id: number): Observable<Pedido> {
+        return this.findOne(id); 
+    }
+
     findOne(id: number): Observable<Pedido> {
         return this.http.get<Pedido>(`${this.apiUrl}/${id}`);
     }

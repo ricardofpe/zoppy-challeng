@@ -14,6 +14,10 @@ export class ProdutoService {
         return this.http.get<Produto[]>(this.apiUrl);
     }
 
+    findById(id: number): Observable<Produto> {
+        return this.findOne(id); 
+    }
+
     findOne(id: number): Observable<Produto> {
         return this.http.get<Produto>(`${this.apiUrl}/${id}`);
     }
