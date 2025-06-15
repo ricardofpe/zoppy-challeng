@@ -106,6 +106,8 @@ A aplicação ficará disponível em: [http://localhost:4200](http://localhost:4
 ![image](https://github.com/user-attachments/assets/4f91833d-7f9e-45fe-a98d-100138976f69)
 ![image](https://github.com/user-attachments/assets/5be14c80-fa83-445f-945b-045e172bf53e)
 ![image](https://github.com/user-attachments/assets/e4d1a4f1-cc72-4481-bd01-ef8ed9ca2613)
+![09ddae49-4d33-49d0-94cc-8de441647c6b](https://github.com/user-attachments/assets/ec6f3b52-64bc-4451-a62a-64980b78b23b)
+![1f3dcaeb-1426-4e6e-8ba8-673a1801dad2](https://github.com/user-attachments/assets/fafb57d2-fb44-4a29-91da-00d8dcf15374)
 
 
 ---
