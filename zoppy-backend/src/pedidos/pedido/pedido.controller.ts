@@ -1,63 +1,35 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, NotFoundException, HttpStatus, HttpException, Query } from '@nestjs/common';
-import { PedidosService } from '../pedidos/pedidos.service';
+import { Controller, Get, Post, Body, Put, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { GetPedidosDto } from '../pedidos/dto/get-pedidos.dto';
+import { PedidosService } from '../pedidos/pedidos.service';
+import { CreatePedidoDto } from '../pedidos/dto/create-pedido.dto';
+import { UpdatePedidoDto } from '../pedidos/dto/update-pedido.dto';
 
 @Controller('pedidos')
 export class PedidosController {
   constructor(private readonly pedidosService: PedidosService) {}
 
-  @Post()
-  async create(@Body() pedido: any) {
-    try {
-      return await this.pedidosService.create(pedido);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
   @Get()
-  async findAll(@Query() query: GetPedidosDto) {
-    try {
-      return await this.pedidosService.findAll(query);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  findAll(@Query() query: GetPedidosDto) {
+    return this.pedidosService.findAll(query);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    try {
-      return await this.pedidosService.findOne(Number(id));
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.pedidosService.findOne(id);
+  }
+
+  @Post()
+  create(@Body() createPedidoDto: CreatePedidoDto) {
+    return this.pedidosService.create(createPedidoDto);
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() pedido: any) {
-    try {
-      return await this.pedidosService.update(Number(id), pedido);
-    } catch (error) {
-       if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
+  update(@Param('id', ParseIntPipe) id: number, @Body() updatePedidoDto: UpdatePedidoDto) {
+    return this.pedidosService.update(id, updatePedidoDto);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    try {
-      await this.pedidosService.remove(Number(id));
-      return { message: `Pedido com ID ${id} removido com sucesso.` };
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.pedidosService.remove(id);
   }
 }

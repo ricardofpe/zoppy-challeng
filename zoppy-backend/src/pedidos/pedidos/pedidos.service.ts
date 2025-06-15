@@ -3,12 +3,18 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Pedido } from './pedido.model';
 import { GetPedidosDto } from './dto/get-pedidos.dto';
 import { Op } from 'sequelize';
+import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { UpdatePedidoDto } from './dto/update-pedido.dto';
+import { Produto } from 'src/produtos/produto.model';
+import { PedidoProduto } from 'src/produtos/pedido-produto-model';
 
 @Injectable()
 export class PedidosService {
   constructor(
     @InjectModel(Pedido)
     private pedidoModel: typeof Pedido,
+    @InjectModel(Produto)
+    private produtoModel: typeof Produto,
   ) {}
 
   async findAll(query: GetPedidosDto): Promise<{ rows: Pedido[]; count: number }> {
@@ -49,6 +55,7 @@ export class PedidosService {
         offset,
         limit,
         order: [['dataPedido', 'DESC']], 
+        include: [Produto] // Inclui os produtos associados
       });
 
       return { rows, count };
@@ -60,7 +67,9 @@ export class PedidosService {
 
   async findOne(id: number): Promise<Pedido> {
     try {
-      const pedido = await this.pedidoModel.findByPk(id);
+      const pedido = await this.pedidoModel.findByPk(id, {
+        include: [Produto], // Inclui os produtos associados
+      });
       if (!pedido) {
         throw new NotFoundException(`Pedido com ID ${id} não encontrado.`);
       }
@@ -74,18 +83,24 @@ export class PedidosService {
     }
   }
 
-  async create(pedido: any): Promise<Pedido> {
+  async create(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     try {
-      return await this.pedidoModel.create(pedido);
+      const pedido = await this.pedidoModel.create(createPedidoDto);
+
+      if (createPedidoDto.produtoIds && createPedidoDto.produtoIds.length > 0) {
+        await this.associateProdutos(pedido.id, createPedidoDto.produtoIds);
+      }
+
+      return pedido;
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
       throw new Error('Não foi possível criar o pedido. Verifique os dados e tente novamente.');
     }
   }
 
-  async update(id: number, pedido: any): Promise<Pedido> {
+  async update(id: number, updatePedidoDto: UpdatePedidoDto): Promise<Pedido> {
     try {
-      const [numberOfAffectedRows, updatedPedidos] = await this.pedidoModel.update(pedido, {
+      const [numberOfAffectedRows, updatedPedidos] = await this.pedidoModel.update(updatePedidoDto, {
         where: { id },
         returning: true,
       });
@@ -94,8 +109,17 @@ export class PedidosService {
         throw new NotFoundException(`Pedido com ID ${id} não encontrado para atualização.`);
       }
 
-      const updatedPedido = await this.findOne(id);
-      return updatedPedido;
+      const pedido = await this.findOne(id);
+
+      if (updatePedidoDto.produtoIds !== undefined) {
+        // Remove as associações existentes
+        await PedidoProduto.destroy({ where: { pedidoId: id } });
+
+        // Cria as novas associações
+        await this.associateProdutos(id, updatePedidoDto.produtoIds);
+      }
+
+      return pedido;
 
     } catch (error) {
       console.error(`Erro ao atualizar pedido com ID ${id}:`, error);
@@ -119,6 +143,17 @@ export class PedidosService {
         throw error;
       }
       throw new Error(`Não foi possível remover o pedido com ID ${id}.`);
+    }
+  }
+
+  private async associateProdutos(pedidoId: number, produtoIds: number[]): Promise<void> {
+    for (const produtoId of produtoIds) {
+      const produto = await this.produtoModel.findByPk(produtoId);
+      if (!produto) {
+        throw new NotFoundException(`Produto com ID ${produtoId} não encontrado.`);
+      }
+
+      await PedidoProduto.create({ pedidoId: pedidoId, produtoId: produtoId });
     }
   }
 }

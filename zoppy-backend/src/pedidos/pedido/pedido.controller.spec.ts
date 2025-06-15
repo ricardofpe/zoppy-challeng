@@ -1,14 +1,19 @@
+import { Controller, Get, Post, Body, Put, Param, Delete, ParseIntPipe, Query, HttpStatus, NotFoundException, INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PedidosController } from './pedido.controller';
 import { PedidosService } from '../pedidos/pedidos.service';
 import { Pedido } from '../pedidos/pedido.model';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { HttpStatus, NotFoundException } from '@nestjs/common';
 import { GetPedidosDto } from '../pedidos/dto/get-pedidos.dto';
+import { CreatePedidoDto } from '../pedidos/dto/create-pedido.dto';
+import { UpdatePedidoDto } from '../pedidos/dto/update-pedido.dto';
+import { Produto } from 'src/produtos/produto.model';
+import { PedidoProduto } from 'src/produtos/pedido-produto-model';
 
 describe('PedidosController', () => {
   let controller: PedidosController;
   let service: PedidosService;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,17 +21,26 @@ describe('PedidosController', () => {
         SequelizeModule.forRoot({
           dialect: 'sqlite',
           storage: ':memory:',
-          models: [Pedido],
+          models: [Pedido, Produto, PedidoProduto],
           synchronize: true,
+          autoLoadModels: true,
+          logging: false,
         }),
-        SequelizeModule.forFeature([Pedido]),
+        SequelizeModule.forFeature([Pedido, Produto, PedidoProduto]),
       ],
       controllers: [PedidosController],
       providers: [PedidosService],
     }).compile();
 
+    app = module.createNestApplication();
+    await app.init();
+
     controller = module.get<PedidosController>(PedidosController);
     service = module.get<PedidosService>(PedidosService);
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('should be defined', () => {
@@ -35,25 +49,21 @@ describe('PedidosController', () => {
 
   describe('create', () => {
     it('should create a new pedido', async () => {
-      const pedidoMock = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente' };
+      const createPedidoDto: CreatePedidoDto = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente', produtoIds: [] };
+      const pedidoMock = { id: 1, ...createPedidoDto };
       jest.spyOn(service, 'create').mockResolvedValue(pedidoMock as any);
 
-      const result = await controller.create(pedidoMock);
+      const result = await controller.create(createPedidoDto);
 
-      expect(service.create).toHaveBeenCalledWith(pedidoMock);
+      expect(service.create).toHaveBeenCalledWith(createPedidoDto);
       expect(result).toEqual(pedidoMock);
     });
 
     it('should handle errors during creation', async () => {
-      const pedidoMock = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente' };
+      const createPedidoDto: CreatePedidoDto = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente', produtoIds: [] };
       jest.spyOn(service, 'create').mockRejectedValue(new Error('Erro ao criar'));
 
-      try {
-        await controller.create(pedidoMock);
-      } catch (error) {
-        expect(error.message).toEqual('Erro ao criar');
-        expect(error.status).toEqual(HttpStatus.BAD_REQUEST);
-      }
+      await expect(controller.create(createPedidoDto)).rejects.toThrowError('Erro ao criar');
     });
   });
 
@@ -76,12 +86,7 @@ describe('PedidosController', () => {
 
       const queryParams: GetPedidosDto = { page: 1, limit: 10 };
 
-      try {
-        await controller.findAll(queryParams);
-      } catch (error) {
-        expect(error.message).toEqual('Erro ao buscar todos');
-        expect(error.status).toEqual(HttpStatus.INTERNAL_SERVER_ERROR);
-      }
+      await expect(controller.findAll(queryParams)).rejects.toThrowError('Erro ao buscar todos');
     });
   });
 
@@ -90,7 +95,7 @@ describe('PedidosController', () => {
       const pedidoMock = { id: 1, cliente: 'Cliente Teste' };
       jest.spyOn(service, 'findOne').mockResolvedValue(pedidoMock as any);
 
-      const result = await controller.findOne('1');
+      const result = await controller.findOne(1);
 
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(result).toEqual(pedidoMock);
@@ -99,57 +104,40 @@ describe('PedidosController', () => {
     it('should handle NotFoundException', async () => {
       jest.spyOn(service, 'findOne').mockRejectedValue(new NotFoundException('Pedido não encontrado'));
 
-      try {
-        await controller.findOne('1');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.message).toEqual('Pedido não encontrado');
-      }
+      await expect(controller.findOne(1)).rejects.toThrowError(NotFoundException);
     });
 
     it('should handle errors during findOne', async () => {
       jest.spyOn(service, 'findOne').mockRejectedValue(new Error('Erro ao buscar'));
 
-      try {
-        await controller.findOne('1');
-      } catch (error) {
-        expect(error.message).toEqual('Erro ao buscar');
-        expect(error.status).toEqual(HttpStatus.INTERNAL_SERVER_ERROR);
-      }
+      await expect(controller.findOne(1)).rejects.toThrowError('Erro ao buscar');
     });
   });
 
   describe('update', () => {
     it('should update a pedido', async () => {
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [] };
       const pedidoMock = { id: 1, cliente: 'Cliente Atualizado' };
       jest.spyOn(service, 'update').mockResolvedValue(pedidoMock as any);
 
-      const result = await controller.update('1', { cliente: 'Cliente Atualizado' });
+      const result = await controller.update(1, updatePedidoDto);
 
-      expect(service.update).toHaveBeenCalledWith(1, { cliente: 'Cliente Atualizado' });
+      expect(service.update).toHaveBeenCalledWith(1, updatePedidoDto);
       expect(result).toEqual(pedidoMock);
     });
 
     it('should handle NotFoundException during update', async () => {
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [] };
       jest.spyOn(service, 'update').mockRejectedValue(new NotFoundException('Pedido não encontrado'));
 
-      try {
-        await controller.update('1', { cliente: 'Cliente Atualizado' });
-      } catch (error) {
-        expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.message).toEqual('Pedido não encontrado');
-      }
+      await expect(controller.update(1, updatePedidoDto)).rejects.toThrowError(NotFoundException);
     });
 
     it('should handle errors during update', async () => {
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [] };
       jest.spyOn(service, 'update').mockRejectedValue(new Error('Erro ao atualizar'));
 
-      try {
-        await controller.update('1', { cliente: 'Cliente Atualizado' });
-      } catch (error) {
-        expect(error.message).toEqual('Erro ao atualizar');
-        expect(error.status).toEqual(HttpStatus.BAD_REQUEST);
-      }
+      await expect(controller.update(1, updatePedidoDto)).rejects.toThrowError('Erro ao atualizar');
     });
   });
 
@@ -157,7 +145,7 @@ describe('PedidosController', () => {
     it('should remove a pedido', async () => {
       jest.spyOn(service, 'remove').mockResolvedValue(undefined);
 
-      const result = await controller.remove('1');
+      const result = await controller.remove(1);
 
       expect(service.remove).toHaveBeenCalledWith(1);
       expect(result).toEqual({ message: 'Pedido com ID 1 removido com sucesso.' });
@@ -166,23 +154,13 @@ describe('PedidosController', () => {
     it('should handle NotFoundException during remove', async () => {
       jest.spyOn(service, 'remove').mockRejectedValue(new NotFoundException('Pedido não encontrado'));
 
-      try {
-        await controller.remove('1');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.message).toEqual('Pedido não encontrado');
-      }
+      await expect(controller.remove(1)).rejects.toThrowError(NotFoundException);
     });
 
     it('should handle errors during remove', async () => {
       jest.spyOn(service, 'remove').mockRejectedValue(new Error('Erro ao remover'));
 
-      try {
-        await controller.remove('1');
-      } catch (error) {
-        expect(error.message).toEqual('Erro ao remover');
-        expect(error.status).toEqual(HttpStatus.INTERNAL_SERVER_ERROR);
-      }
+      await expect(controller.remove(1)).rejects.toThrowError('Erro ao remover');
     });
   });
 });

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 
 import { PedidosModule } from './pedidos/pedidos/pedidos.module';
 import { SequelizeConfigModule } from './sequelize/sequelize.module';
+import { ProdutosModule } from './produtos/produtos.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SequelizeConfigModule } from './sequelize/sequelize.module';
     }),
     SequelizeConfigModule,
     PedidosModule,
+    ProdutosModule
   ],
   controllers: [AppController],
   providers: [AppService],

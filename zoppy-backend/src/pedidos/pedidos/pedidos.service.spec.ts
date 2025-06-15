@@ -1,15 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PedidosService } from './pedidos.service';
 import { Pedido } from './pedido.model';
-import { SequelizeModule } from '@nestjs/sequelize';
+import { SequelizeModule, getModelToken } from '@nestjs/sequelize';
 import { NotFoundException } from '@nestjs/common';
-import { getModelToken } from '@nestjs/sequelize';
 import { GetPedidosDto } from './dto/get-pedidos.dto';
 import { Op } from 'sequelize';
+import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { UpdatePedidoDto } from './dto/update-pedido.dto';
+import { Produto } from 'src/produtos/produto.model';
+import { PedidoProduto } from 'src/produtos/pedido-produto-model';
 
 describe('PedidosService', () => {
   let service: PedidosService;
   let pedidoModel: typeof Pedido;
+  let produtoModel: typeof Produto;
+  let pedidoProdutoModel: typeof PedidoProduto;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -17,16 +22,20 @@ describe('PedidosService', () => {
         SequelizeModule.forRoot({
           dialect: 'sqlite',
           storage: ':memory:',
-          models: [Pedido],
+          models: [Pedido, Produto, PedidoProduto],
           synchronize: true,
+          autoLoadModels: true,
+          logging: false
         }),
-        SequelizeModule.forFeature([Pedido]),
+        SequelizeModule.forFeature([Pedido, Produto, PedidoProduto]),
       ],
       providers: [PedidosService],
     }).compile();
 
     service = module.get<PedidosService>(PedidosService);
     pedidoModel = module.get<typeof Pedido>(getModelToken(Pedido));
+    produtoModel = module.get<typeof Produto>(getModelToken(Produto));
+    pedidoProdutoModel = module.get<typeof PedidoProduto>(getModelToken(PedidoProduto));
   });
 
   it('should be defined', () => {
@@ -48,6 +57,7 @@ describe('PedidosService', () => {
         offset: 0,
         limit: 10,
         order: [['dataPedido', 'DESC']],
+        include: [Produto]
       });
       expect(result).toEqual({ rows: pedidosMock, count: countMock });
     });
@@ -70,6 +80,7 @@ describe('PedidosService', () => {
         offset: 0,
         limit: 5,
         order: [['dataPedido', 'DESC']],
+        include: [Produto]
       });
     });
 
@@ -88,7 +99,7 @@ describe('PedidosService', () => {
 
       const result = await service.findOne(1);
 
-      expect(pedidoModel.findByPk).toHaveBeenCalledWith(1);
+      expect(pedidoModel.findByPk).toHaveBeenCalledWith(1, { include: [Produto] });
       expect(result).toEqual(pedidoMock);
     });
 
@@ -101,52 +112,85 @@ describe('PedidosService', () => {
     it('should handle errors during findOne', async () => {
       jest.spyOn(pedidoModel, 'findByPk').mockRejectedValue(new Error('Erro ao buscar'));
 
-      await expect(service.findOne(1)).rejects.toThrowError('Não foi possível buscar o pedido com ID 1.');
+      await expect(service.findOne(1)).rejects.toThrowError(`Não foi possível buscar o pedido com ID 1.`);
     });
   });
 
   describe('create', () => {
     it('should create a new pedido', async () => {
-      const pedidoMock = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente' };
+      const createPedidoDto: CreatePedidoDto = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente', produtoIds: [1, 2] };
+      const pedidoMock = { id: 1, ...createPedidoDto };
+
+      jest.spyOn(produtoModel, 'findByPk').mockResolvedValue({ id: 1 } as any);
       jest.spyOn(pedidoModel, 'create').mockResolvedValue(pedidoMock as any);
+      jest.spyOn(PedidoProduto, 'create').mockResolvedValue({ pedidoId: 1, produtoId: 1 } as any);
 
-      const result = await service.create(pedidoMock);
+      const result = await service.create(createPedidoDto);
 
-      expect(pedidoModel.create).toHaveBeenCalledWith(pedidoMock);
+      expect(produtoModel.findByPk).toHaveBeenCalledTimes(2);
+      expect(pedidoModel.create).toHaveBeenCalledWith(createPedidoDto);
+      expect(PedidoProduto.create).toHaveBeenCalledTimes(2);
       expect(result).toEqual(pedidoMock);
     });
 
     it('should handle errors during create', async () => {
-      const pedidoMock = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente' };
+      const createPedidoDto: CreatePedidoDto = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente', produtoIds: [1] };
       jest.spyOn(pedidoModel, 'create').mockRejectedValue(new Error('Erro ao criar'));
 
-      await expect(service.create(pedidoMock)).rejects.toThrowError('Não foi possível criar o pedido. Verifique os dados e tente novamente.');
+      await expect(service.create(createPedidoDto)).rejects.toThrowError('Não foi possível criar o pedido. Verifique os dados e tente novamente.');
+    });
+
+    it('should throw NotFoundException if product not found during create', async () => {
+        const createPedidoDto: CreatePedidoDto = { cliente: 'Cliente Teste', dataPedido: new Date(), valorTotal: 100, status: 'Pendente', produtoIds: [1] };
+        jest.spyOn(produtoModel, 'findByPk').mockResolvedValue(null);
+
+        await expect(service.create(createPedidoDto)).rejects.toThrowError(NotFoundException);
     });
   });
 
   describe('update', () => {
     it('should update a pedido', async () => {
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [1, 2] };
       const pedidoMock = { id: 1, cliente: 'Cliente Atualizado' };
-      jest.spyOn(pedidoModel, 'update').mockResolvedValue([[1], [pedidoMock]] as any);
+
+      jest.spyOn(pedidoModel, 'update').mockResolvedValue([[1]] as any);
       jest.spyOn(service, 'findOne').mockResolvedValue(pedidoMock as any);
+      jest.spyOn(PedidoProduto, 'destroy').mockResolvedValue(1);
+      jest.spyOn(produtoModel, 'findByPk').mockResolvedValue({ id: 1 } as any);
+      jest.spyOn(PedidoProduto, 'create').mockResolvedValue({ pedidoId: 1, produtoId: 1 } as any);
 
-      const result = await service.update(1, { cliente: 'Cliente Atualizado' });
+      const result = await service.update(1, updatePedidoDto);
 
-      expect(pedidoModel.update).toHaveBeenCalledWith({ cliente: 'Cliente Atualizado' }, { where: { id: 1 }, returning: true });
+      expect(pedidoModel.update).toHaveBeenCalledWith(updatePedidoDto, { where: { id: 1 }, returning: true });
       expect(service.findOne).toHaveBeenCalledWith(1);
+      expect(PedidoProduto.destroy).toHaveBeenCalledWith({ where: { pedidoId: 1 } });
+      expect(produtoModel.findByPk).toHaveBeenCalledTimes(2);
+      expect(PedidoProduto.create).toHaveBeenCalledTimes(2);
       expect(result).toEqual(pedidoMock);
     });
 
     it('should throw NotFoundException if pedido is not found during update', async () => {
-      jest.spyOn(pedidoModel, 'update').mockResolvedValue([[0], []] as any);
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [1] };
+      jest.spyOn(pedidoModel, 'update').mockResolvedValue([[0]] as any);
 
-      await expect(service.update(1, { cliente: 'Cliente Atualizado' })).rejects.toThrowError(NotFoundException);
+      await expect(service.update(1, updatePedidoDto)).rejects.toThrowError(NotFoundException);
     });
 
     it('should handle errors during update', async () => {
+      const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Atualizado', produtoIds: [1] };
       jest.spyOn(pedidoModel, 'update').mockRejectedValue(new Error('Erro ao atualizar'));
 
-      await expect(service.update(1, { cliente: 'Cliente Atualizado' })).rejects.toThrowError('Não foi possível atualizar o pedido com ID 1. Verifique os dados e tente novamente.');
+      await expect(service.update(1, updatePedidoDto)).rejects.toThrowError(`Não foi possível atualizar o pedido com ID 1. Verifique os dados e tente novamente.`);
+    });
+
+      it('should throw NotFoundException if product not found during update', async () => {
+        const updatePedidoDto: UpdatePedidoDto = { cliente: 'Cliente Teste', produtoIds: [1] };
+        jest.spyOn(pedidoModel, 'update').mockResolvedValue([[1]] as any);
+        jest.spyOn(service, 'findOne').mockResolvedValue({id: 1} as any);
+        jest.spyOn(PedidoProduto, 'destroy').mockResolvedValue(1);
+        jest.spyOn(produtoModel, 'findByPk').mockResolvedValue(null);
+
+        await expect(service.update(1, updatePedidoDto)).rejects.toThrowError(NotFoundException);
     });
   });
 
@@ -171,7 +215,7 @@ describe('PedidosService', () => {
       const pedidoMock = { id: 1, cliente: 'Cliente Teste', destroy: jest.fn().mockRejectedValue(new Error('Erro ao remover')) };
       jest.spyOn(service, 'findOne').mockResolvedValue(pedidoMock as any);
 
-      await expect(service.remove(1)).rejects.toThrowError('Não foi possível remover o pedido com ID 1.');
+      await expect(service.remove(1)).rejects.toThrowError(`Não foi possível remover o pedido com ID 1.`);
     });
   });
 });

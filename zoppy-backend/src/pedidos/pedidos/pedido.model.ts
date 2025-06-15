@@ -1,4 +1,6 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, BelongsToMany } from 'sequelize-typescript';
+import { Produto } from 'src/produtos/produto.model';
+import { PedidoProduto } from 'src/produtos/pedido-produto-model';
 
 @Table({ tableName: 'pedidos' })
 export class Pedido extends Model<Pedido> {
@@ -31,4 +33,7 @@ export class Pedido extends Model<Pedido> {
     type: DataType.STRING,
   })
   status: string;
+
+  @BelongsToMany(() => Produto, () => PedidoProduto)
+  produtos: Produto[];
 }
