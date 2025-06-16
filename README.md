@@ -58,7 +58,7 @@ docker run --name zoppy-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=zopp
 ### 🔧 2. Backend (NestJS)
 
 ```bash
-cd backend
+cd zoppy_backend
 npm install
 ```
 
